@@ -1,0 +1,36 @@
+% Hello LaTeX %
+\documentclass[10pt,final,journal]{IEEEtran}
+
+\begin{document}
+\title{Self-Managing Partitioning of Cloud Data Stores for Salable Transaction Processing Proposal}
+\author{Benjamin Busjaeger, Jonathan Chu, Daniel Ormond \\
+\{busjaeger, chu, ormond1\}@illinois.edu}
+\date{Feb 2012}
+\maketitle
+
+%\begin{abstract}
+%\end{abstract}
+
+%\begin{IEEEkeywords}
+%foo, bar, x, y, z
+%\end{IEEEkeywords}
+
+\section{Proposal}
+Current Cloud data stores such as BigTable [CDG06], PNUTS [CRS08], or Dynamo [DHJ07] restrict ACID transactions to operations accessing a single row. This allows for highly scalable implementations and is sufficient for many applications given the denormalized data model ~\cite{AEA10}. However, it places the burden of ensuring consistency across entities on application developers and is infeasible for some applications [BCD11].
+
+Various approaches have been proposed recently to extend transaction support for Cloud data stores to span multiple rows without compromising their inherent scalability [BBC11, DAE10, JRY11, LLM11, WPC10, PDA10, ZDS10]. At the same time novel approaches for scaling traditional relational DBMSs to Cloud deployments have been proposed [BCD11, CJP11]. All of these approaches are based on the premise that distributed transactions do not scale for disk-based shared-nothing data storage architectures [CZJ10]. Therefore, most proposals introduce some notion of static or dynamic data grouping to limit the scope within which strong consistency guarantees are needed. For example, in Megastore [BBC11] users define static entity groups, CloudTPS [WPC10] dynamically establishes groups across transaction managers, and G-Store ﻿[DAE10] defines a protocol for creating and destroying key groups at runtime before and after executing transactions across data items. This improves the situation, specifically for applications that exhibit access locality. However, it places the burdon of identifying and defining groups on application developers, which makes these solutions more complicated and error prone than those offered in traditional centralized relational DBMSs.
+
+We propose to dynamically detect and define groupings at runtime by trying to anticipate which data items will be accessed together by transactions. We plan to do this by monitoring the transaction log and applying clustering, graph, or learning algorithms. The observed groupings can then be used to physically co-locate data to reduce the number of distributed transactions needed. This repartitioning has to be done live without interrupting service.
+
+The basic idea is motivated in ~\cite{DAS11} for G-Store [DAE10], which is designed specifically for groups that are transient in nature, but exist long enough to amortize the cost of group formation (e.g. online games in which users join and leave groups). Curino et al [CZJ10] present Schism, a static partitioning algorithm to reduce distributed transactions for SQL datastores, and show evidence of significant performance improvements. These static algorithms are a good starting point for our work and would likely yield better results for key/value stores given their simplified data access model. Also, an incremental version of these algorithms may scale better than the static equivalent, since it may be able to consider only new transaction log entries in each iteration. Another option would be to use a probabilistic algorithm. Finally, Albatross [DNA11] defines an algorithm for live repartitioning of data, which we may be able to apply.
+
+We plan to evaluate our algorithm by implementing it as an extension to one or more of the existing approaches or to a new prototype. The former is preferable, however, not all research prototypes have published source code. One possibility is to extend CloudTPS, since source code is available and the in-memory transaction processing design may lend itself well to runtime partitioning.
+
+\section{Literature Survey}
+ToDo?? Not sure what is wanted here.
+
+% Bibliography generation from references.bib
+\bibliographystyle{IEEEtran}
+\bibliography{IEEEabrv,references}
+
+\end{document}
