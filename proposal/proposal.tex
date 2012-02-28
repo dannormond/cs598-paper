@@ -90,8 +90,7 @@ Scalaris & ? & ? & ? \\
 \end{tabular}
 \end{table}
 
-\subsection{Paritioning Algorithms}
-Schism ~\cite{Curino:2010:SWA:1920841.1920853} is a static partitioning algorithm to reduce distributed transactions for SQL datastores. It significant improves performance compared to hash-based and even manual partitioning techniques. These static algorithms are a good starting point for our work and would likely yield better results for key/value stores given their simplified data access model. Also, an incremental version of these algorithms may scale better than the static equivalent, since it may be able to consider only new transaction log entries in each iteration. Another option would be to use a probabilistic algorithm.
+\input{partitioning-algos}
 
 
 
