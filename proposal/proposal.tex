@@ -1,4 +1,3 @@
-% Hello LaTeX %
 \documentclass[10pt,final,journal]{IEEEtran}
 
 \begin{document}
@@ -8,14 +7,13 @@
 \date{Feb 2012}
 \maketitle
 
-%\begin{abstract}
-%\end{abstract}
+\begin{abstract}
+We are designing a new cloud computing system that will be highly scalable and yet still be able to maintain the ACID properties of relational database management systems. Our system forms a middle tier between the application and datastore layer to create modularity in the architecture and ease integration. We plan to utilize graph theory, clustering algorithms, and markov chaining to partition the data within our system into optimal locations in the server clusters. By training on historical logs, our system should be able to recognize data access patterns and use that knowledge to partition the data within the cluster to better fit within those patterns. With our data partitioning scheme, we hope to lower time delays, reduce bandwidth, and ultimately improve the speed of online transaction processing while not sacrificing data consistency.
+\end{abstract}
 
 %\begin{IEEEkeywords}
 %Cloud, OLTP
 %\end{IEEEkeywords}
-
-We are designing a new cloud computing system that will be highly scalable and yet still be able to maintain the ACID properties of relational database management systems. Our system forms a middle tier between the application and datastore layer to create modularity in the architecture and ease integration. We plan to utilize graph theory, clustering algorithms, and markov chaining to partition the data within our system into optimal locations in the server clusters. By training on historical logs, our system should be able to recognize data access patterns and use that knowledge to partition the data within the cluster to better fit within those patterns. With our data partitioning scheme, we hope to lower time delays, reduce bandwidth, and ultimately improve the speed of online transaction processing while not sacrificing data consistency.
 
 \section{Intorduction}
 Cloud Computing has arisen to become one of the fastest growing fields in the industry with companies like Amazon, Rackspace, and Microsoft investing heavily into the cloud. Emerging businesses need to maintain high performance as they scale up to their growing customer base. On the internet, network traffic can be highly volatile and quickly shift from one place to the next. As such websites need to have a distributed database system that can handle a large number of transactions and queries while still guaranteeing consistency of the data. OLTP (Online Transaction Processing) systems that rely on traditional database technology like SQL struggle to scale when data processing needs to be spread out across many different servers ~\cite{Malkowski:2010:EAD:1774088.1774449}. Therefore, a new class of database technologies called NoSQL have been developed that do not need to follow the requirements of traditional relational database models. These NoSQL databases distribute data across many nodes to scale horizontally and thus ensure fast parallel performance in serving customers.  However, they do not naturally ensure the ACID properties of atomicity, consistency, isolation, and durability that have already been established in the SQL technologies.
