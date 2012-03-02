@@ -34,6 +34,17 @@
  address = {Washington, DC, USA},
 } 
 
+@book{Bose02,
+  author = {Bose, S. K.},
+  keywords = {doctoraat},
+  posted-at = {2008-04-18 07:04:44},
+  priority = {3},
+  publisher = {Kluwer},
+  title = {{An Introduction to Queueing Systems}},
+  year = {2002},
+  chapter = {1}
+}
+
 @inproceedings{Campbell:2010:ESF:1807167.1807280,
  author = {Campbell, David G. and Kakivaya, Gopal and Ellis, Nigel},
  title = {Extreme scale with full SQL language support in microsoft SQL Azure},
@@ -119,6 +130,23 @@
  publisher = {VLDB Endowment},
 }
 
+@article{Das:2011:ALE:2002974.2002977,
+ author = {Das, Sudipto and Nishimura, Shoji and Agrawal, Divyakant and El Abbadi, Amr},
+ title = {Albatross: lightweight elasticity in shared storage databases for the cloud using live data migration},
+ journal = {Proc. VLDB Endow.},
+ issue_date = {May 2011},
+ volume = {4},
+ issue = {8},
+ month = may,
+ year = {2011},
+ issn = {2150-8097},
+ pages = {494--505},
+ numpages = {12},
+ url = {http://dl.acm.org.proxy2.library.illinois.edu/citation.cfm?id=2002974.2002977},
+ acmid = {2002977},
+ publisher = {VLDB Endowment},
+}
+
 TODO: check
 @phdthesis{Das:2011,
     author  = "Sudipto Das",
@@ -189,7 +217,17 @@ TODO
  keywords = {performance, reliability, scalability},
 } 
 
-TODO
+@conference {Elmore:2011,
+	author = {Aaron Elmore and Sudipto Das and Divyakant Agrawal and Amr El Abbadi},
+	title = {Zephyr: Live Migration in Shared Nothing Databases for Elastic Cloud Platforms},
+	booktitle = {SIGMOD},
+	year = {2011},
+	month = {06/2011},
+	publisher = {ACM},
+	organization = {ACM},
+	keywords = {Distributed Systems, Elasticity, Live Database Migration, multitenancy}
+}
+
 @inproceedings{Furman:2008:8530095,
     author = {Furman, JJ and Karlsson, J. S. and Leon, J. M. and Newman, S. and Lloyd, A. and
 Zeyliger, P.},
@@ -198,11 +236,46 @@ Zeyliger, P.},
     year = {2008}
 }
 
+@article{Ghemawat:2003:GFS:1165389.945450,
+ author = {Ghemawat, Sanjay and Gobioff, Howard and Leung, Shun-Tak},
+ title = {The Google file system},
+ journal = {SIGOPS Oper. Syst. Rev.},
+ issue_date = {December 2003},
+ volume = {37},
+ issue = {5},
+ month = oct,
+ year = {2003},
+ issn = {0163-5980},
+ pages = {29--43},
+ numpages = {15},
+ url = {http://doi.acm.org.proxy2.library.illinois.edu/10.1145/1165389.945450},
+ doi = {http://doi.acm.org.proxy2.library.illinois.edu/10.1145/1165389.945450},
+ acmid = {945450},
+ publisher = {ACM},
+ address = {New York, NY, USA},
+ keywords = {clustered storage, data storage, fault tolerance, scalability},
+}
+
 @article{Gilks:1996,
   author={Gilks, W. and Richardson, S. and Spiegelhalter, D.},
   year={1996},
   title={Markov Chain Monte Carlo Methods in Practice},
   booktitle={CRC Press}
+}
+
+@inproceedings{Hunt:2010:ZWC:1855840.1855851,
+ author = {Hunt, Patrick and Konar, Mahadev and Junqueira, Flavio P. and Reed, Benjamin},
+ title = {ZooKeeper: wait-free coordination for internet-scale systems},
+ booktitle = {Proceedings of the 2010 USENIX conference on USENIX annual technical conference},
+ series = {USENIXATC'10},
+ year = {2010},
+ location = {Boston, MA},
+ pages = {11--11},
+ numpages = {1},
+ url = {http://dl.acm.org.proxy2.library.illinois.edu/citation.cfm?id=1855840.1855851},
+ acmid = {1855851},
+ publisher = {USENIX Association},
+ address = {Berkeley, CA, USA},
 }
 
 @inproceedings{Junqueira:2011:LTS:2056318.2057148,
@@ -219,6 +292,40 @@ Zeyliger, P.},
  acmid = {2057148},
  publisher = {IEEE Computer Society},
  address = {Washington, DC, USA},
+}
+
+@article{Lamport:1998:PP:279227.279229,
+ author = {Lamport, Leslie},
+ title = {The part-time parliament},
+ journal = {ACM Trans. Comput. Syst.},
+ volume = {16},
+ issue = {2},
+ month = {May},
+ year = {1998},
+ issn = {0734-2071},
+ pages = {133--169},
+ numpages = {37},
+ url = {http://doi.acm.org.proxy2.library.illinois.edu/10.1145/279227.279229},
+ doi = {http://doi.acm.org.proxy2.library.illinois.edu/10.1145/279227.279229},
+ acmid = {279229},
+ publisher = {ACM},
+ address = {New York, NY, USA},
+ keywords = {state machines, three-phase commit, voting},
+}
+
+@article{Lamport:2001:PMS,
+    author = {Lamport, Leslie},
+    citeulike-article-id = {541278},
+    journal = {ACM SIGACT News},
+    keywords = {bibtex-import},
+    month = dec,
+    number = {4},
+    pages = {18--25},
+    posted-at = {2006-03-09 04:35:31},
+    priority = {2},
+    title = {{P}axos Made Simple},
+    volume = {32},
+    year = {2001}
 }
 
 @inproceedings{Levandoski:2011:8530161,
@@ -279,18 +386,28 @@ Zeyliger, P.},
   pages     = {77-86}
 }
 
-@article{Zhou:2011:5740834,
-author={Zhou, W. and Pierre, G. and Chi, C.},
-journal={Services Computing, IEEE Transactions on},
-title={CloudTPS: Scalable Transactions for Web Applications in the Cloud},
-year={2011},
-month={ },
-volume={PP},
-number={99},
-pages={1}, 
-keywords={},
-doi={10.1109/TSC.2011.18},
-ISSN={1939-1374}
+@article{Wei:2011:5740834,
+  author={Wei, Z. and Pierre, G. and Chi, C.},
+  journal={Services Computing, IEEE Transactions on},
+  title={CloudTPS: Scalable Transactions for Web Applications in the Cloud},
+  year={2011},
+  month={ },
+  volume={PP},
+  number={99},
+  pages={1}, 
+  keywords={},
+  doi={10.1109/TSC.2011.18},
+  ISSN={1939-1374}
+}
+
+@article{Wei:2011:CJQ,
+  author = {Zhou Wei and Guillaume Pierre and Chi-Hung Chi},
+  title = {Consistent Join Queries in Cloud Data Stores},
+  institution = {Vrije Universiteit},
+  year = {2011},
+  number = {IR-CS-068},
+  address = {Amsterdam, The Netherlands},
+  month = jan,
 }
 
 @inproceedings{Zhang:2010:5697970, 
@@ -305,6 +422,15 @@ pages={177 -184},
 keywords={bare-bones HBase;cloud computing environments;database management systems;global snapshot isolation;multi-row distributed transactions;distributed databases;distributed processing;transaction processing;}, 
 doi={10.1109/GRID.2010.5697970}, 
 ISSN={},
+}
+
+@misc{Page_1998,
+  title={Method for node ranking in a linked database},
+  url={http://www.google.com/patents?hl=en\&lr=\&vid=USPAT7058628\&id=iEB4AAAAEBAJ\&oi=fnd\&dq=Method+for+Node+ranking+in+a+linked+database\&printsec=abstract},
+  journal={US Patent 7058628},
+  publisher={US Patent Office},
+  author={Page, Lawrence},
+  year={1998}
 }
 
 @proceedings{DBLP:conf/cidr/2011,
