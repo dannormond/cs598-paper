@@ -38,15 +38,13 @@ Relational Cloud ~\cite{Curino:2011:JPMWMBZ11} aims to establish an architecture
 
 MegaStore ~\cite{Furman:2008:8530095, Baker:2011:8530095} is Google's highly available data store powering its Web platform service App Engine and many internal services. It extends BigTable with the notion of entity groups, which co-locate rows in the same BigTable partition to provide localized ACID transactions. Operations that span multiple entity groups are exposed to weaker consistency semantics. Megastore also builds several other notable features on top of BigTable, which include secondary indexes and synchronous data replication across datacenters.
 
-G-Store ~\cite{Das:2010:GSD:1807128.1807157} 
+G-Store ~\cite{Das:2010:GSD:1807128.1807157} augments key/value stores with a key group protocol to provide ACID transactions over a dynamically selected set of keys. It targets specific applications which need to execute transactions across frequently changing groups of entities. Since the entity groups are non-overlapping, it is not generally applicable.
 
 CloudTPS ~\cite{Wei:2011:5740834} interposes a group of Local Transaction Managers (LTMs) between clients and key/value data stores to provide full ACID semantics. It is designed for web application workloads and makes the limiting assumptions that transactions are short-lived, access few data items known beforehand, and can return older but consistent snapshots of data for complex read queries. The last assumption has been removed by more recent work ~\cite{Wei:2011:CJQ}, which adds consistent join query support. Data items accessed by transactions are loaded into memory of LTMs using consistent hashing and eventually written back to the datastore. Transaction state is also maintained in memory. Atomicity is achieved by two phase commit across LTMs and durability is ensured by replicating in-memory state across LTMs.
 
 Deuteronomy ~\cite{Levandoski:2011:8530161} focuses on separating transaction and data management into a transaction component (TC) and a data component (DC). The TC only expects a record-oriented interface with atomic operations from the DC, but is otherwise agnostic of how data is stored. The TC provides full ACID guarantees through concurrency control and undo/redo logging that operates on logical as opposed to physical entities. This makes it portable across a variety of data storage solutions. The system relies on a centralized TC to handle all requests, which may not be feasible for large cloud deployments.
 
 HBaseSI ~\cite{} and ReTSO ~\cite{}
-
-ecStore ~\cite{}
 
 The design we envision synthesizes ideas from several of these systems with our unique partitioning approach to provide a strongly consistent key/value datastore.
 
@@ -69,7 +67,6 @@ CloudTPS & key/value & no & serializable/snapshot \\
 Deuteronomy & agnostic & no &serializable \\
 HBaseSI & key/value & no & snapshot \\
 ReTSO/Omid & key/value & no & snapshot \\
-ecStore & ? & no & ? \\
 \hline
 \end{tabular}
 \end{table}
