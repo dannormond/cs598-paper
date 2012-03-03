@@ -44,7 +44,7 @@ CloudTPS ~\cite{Wei:2011:5740834} interposes a group of Local Transaction Manage
 
 Deuteronomy ~\cite{Levandoski:2011:8530161} focuses on separating transaction and data management into a transaction component (TC) and a data component (DC). The TC only expects a record-oriented interface with atomic operations from the DC, but is otherwise agnostic of how data is stored. The TC provides full ACID guarantees through concurrency control and undo/redo logging that operates on logical as opposed to physical entities. This makes it portable across a variety of data storage solutions. The system relies on a centralized TC to handle all requests, which may not be feasible for large cloud deployments.
 
-HBaseSI ~\cite{} and ReTSO ~\cite{}
+HBaseSI ~\cite{Zhang:2010:5697970} and ReTSO ~\cite{Junqueira:2011:LTS:2056318.2057148} are 
 
 The design we envision synthesizes ideas from several of these systems with our unique partitioning approach to provide a strongly consistent key/value datastore.
 
@@ -66,7 +66,7 @@ G-Store & key/value & yes (logical) & serializable \\
 CloudTPS & key/value & no & serializable/snapshot \\
 Deuteronomy & agnostic & no &serializable \\
 HBaseSI & key/value & no & snapshot \\
-ReTSO/Omid & key/value & no & snapshot \\
+ReTSO & key/value & no & snapshot \\
 \hline
 \end{tabular}
 \end{table}
