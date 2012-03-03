@@ -44,7 +44,7 @@ CloudTPS ~\cite{Wei:2011:5740834} interposes a group of Local Transaction Manage
 
 Deuteronomy ~\cite{Levandoski:2011:8530161} focuses on separating transaction and data management into a transaction component (TC) and a data component (DC). The TC only expects a record-oriented interface with atomic operations from the DC, but is otherwise agnostic of how data is stored. The TC provides full ACID guarantees through concurrency control and undo/redo logging that operates on logical as opposed to physical entities. This makes it portable across a variety of data storage solutions. The system relies on a centralized TC to handle all requests, which may not be feasible for large cloud deployments.
 
-HBaseSI ~\cite{Zhang:2010:5697970} and ReTSO ~\cite{Junqueira:2011:LTS:2056318.2057148} are 
+HBaseSI ~\cite{Zhang:2010:5697970} and ReTSO ~\cite{Junqueira:2011:LTS:2056318.2057148} are different approaches for adding transactions with snapshot isolation to HBase, an open source implementation of BigTable. Neither approach uses partitioning to achieve this. ReTSO implements a lock-free commit algorithm using a centralized Transaction Status Oracle (TSO). HBaseSI uses a set of custom tables and several HBase features, such as atomic row writes, to implement transactions. Both make use of BigTable's built-in timestamp mechanism.
 
 The design we envision synthesizes ideas from several of these systems with our unique partitioning approach to provide a strongly consistent key/value datastore.
 
