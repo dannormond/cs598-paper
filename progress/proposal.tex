@@ -73,6 +73,49 @@ ReTSO & key/value & no & snapshot \\
 
 \input{partitioning-algos}
 
+\section{Background}
+
+\subsection{BigTable}
+BigTable ~\cite{Chang:2006:BDS:1267308.1267323} is a distributed storage system for managing structured data. It was developed at Google out of the need to store vast amounts of data (petabytes) across a large number of machines (1000s) with high scalability, availability, and performance. BigTable offers a simple data model that resembles a multidimensional map in which values are indexed by a triple consisting of row key, column key, and timestamp. The map is sparse in that it only persists cells that actually contain data, and it is sorted in lexicographical order by row key. It is also automatically partitioned into row ranges, called \emph{tablets}, which are distributed across machines.
+
+Reads or writes that access data in a single row are atomic and transactions across such operations are also supported. However, transactions that span multiple rows are not supported. Apart from single row operations, the API also includes scanners that can be used to iterate and filter data and a server-side scripting language, called Sawzall ~\cite{Pike:2005}, for more complex read-only queries.
+
+BigTable stores data and logs in the Google File System (GFS) ~\cite{Ghemawat:2003:GFS:1165389.945450}. GFS is a distributed file system optimized for large-scale data-intensive applications. Data is automatically replicated across multiple data nodes and error detection is built-in through checksums [TODO: complete]. BigTable also relies on Chubby ~\cite{Burrows:2006}, a distributed lock service and file system built on the Paxos algorithm ~\cite{Lamport:1998:PP:279227.279229, Lamport:2001:PMS}, for master election, address boostrapping, and server discovery.
+
+A BigTable cluster consists of clients, a single master, and many tablet servers. The master maintains the set of active tablet servers discovered via Chubby and assigns tablets to tablet servers. Schema manipulation is also handled by the master. Each tablet server manages a set of tablets and responds to read and write requests for those tablets. Each tablet contains the values for all columns and timestamps for each row in the given range of a table. However, since tablets are assigned to balance the load across tablet servers, they are not necessarily co-located with other tablets of the same table. Clients talk directly to tablet servers to access data. To find out which tablet stores the desired rows and where the tablet is currently located, clients query a special metadata tablet whose location is stored in Chubby. As tablets grow or shrink, they are split or merged and moved between servers. The former operation is initiated by tablet servers whereas the latter are initiated by the master.
+
+Tablets are physically stored in GFS as a set of SSTables, which is a file format that implements an ordered immutable map in the form of indexed blocks. Since SSTables are immutable, tablet mutations are first written to a redo log stored in GFS and then added to an in-memory data structure called \emph{memtable}. When the memtable exceeds a certain threshold, a \emph{minor compaction} is triggered, which writes the memtable into a new SSTable. To reduce the number of SSTables, \emph{merging compactions} combine several SSTables into a single one and \emph{major compactions} combine all SSTables into a single one and also permantenly apply delete mutations.
+
+BigTable also implements several refinements to improve performance. Relevant in this context are commit log and tablet recovery optimizations. All redo log records for tablets on a given tablet server are stored in a single log file to reduce disk seeks and enable group commit. The implication is that if a tablet server crashes, the log has to split across tablet servers that are assigned to recover the tablets. Recovery consists of replaying any mutations that have not be stored in SSTables into the new memstore. To avoid this overhead when moving tablets between servers, the source server compacts the tablet once before and once after closing it.
+
+Finally, BigTable was recently enhanced with a feature called Coprocessors that allow executing code directly on tablet servers similar to stored procedures in traditional database systems ~\cite{Dean:2009}. They are attached to tablets and can be called by addressing rows or ranges of rows. The BigTable coprocessor client library automatically resolves the actual location.
+
+\subsection{HBase}
+HBase is an open source implementation of Google's BigTable. For the most part it closely implements the BigTable design, but there are some notable differences ~\cite{George:2011} some of which are relevant in this context. First, HBase uses a different naming scheme. Tablets are referred to as \emph{regions }, memtable is called \emph{MemStore}, and SSTables are called HFiles. Secondly, HBase builds on open source alternatives to GFS and Chubby, namely the Hadoop Distributed File System (HDFS) and Zookeeper ~\cite{Hunt:2010:ZWC:1855840.1855851}. HDFS differs from GFS ... Zookeeper differs from Chubby ...
+Thirdly, HBase's coprocessor framework differs slightly from the one used in BigTable. HBase coprocessors are implemented as Java classes that are dynamically loaded by region servers as needed. They fall into two categories: \emph{observers} or \emph{endpoints}. Observers are invoked when certain events occur, similar to triggers in traditional database systems. They can be attached to a region, the master, or the write-ahead log to perform additional processing or intercept invocations. Endpoints expose custom operations to execute directly on the server hosting the data.
+Our system is built on HBase, so we will use HBase terminology in the following discussion.
+
+\subsection{Multiversion Timestamp Ordering}
+Multiversion timestamp ordering (MVTO) is a multiversion concurrency control (MVCC) protocol that generates serializable transaction schedules in the presence of concurrent execution. It assigns each transaction a unique timestamp that is larger than that of any transaction started before it. It then maps the operations onto versions such that the result is equivalent to that of a serial schedule on version-less data in which transactions are executed in the order of their timestamps. Operations are scheduled optimistically, so if an ordering conflict occurs that cannot be resolved, one of the transactions must be aborted and restarted.
+
+The concrete protocol consists of the following three rules ~\cite{Weikum:2001:TIS}:
+1. A read operation of some object \emph{x} by transaction \emph{i} is transformed into a read operation of the largest version of x written by a transaction that started before \emph{i}.
+2. A write operation of some object \emph{x} by transaction \emph{i} is processed as follows:
+a) If a transaction that started after \emph{i} has already read a version of \emph{x} that was written by a transaction that started before \emph{i}, then the write operation is rejected and \emph{i} is aborted.
+b) otherwise the write operation is transformed into a write operation on version \emph{i} of \emph{x}.
+3. A commit operation by transaction \emph{i} is delayed until all transactions that have written versions of objects read by \emph{i} have been committed.
+
+This protocol allows for a higher degree of concurrency than lock-based protocols, because reads can be served from older versions while newer ones are being created. It is also deadlock free, since no locks are used and transactions only ever wait on transactions started before them to commit. In addition, recovery is simplified, because data is never modified in place. To undo a write means to simply remove the written version. It should also be pointed out that MVTO prevents the write skew anomaly permitted by snapshot isolation protocols as illustrated in figure TODO. The transaction that starts second will be forced to abort upon trying to write \emph{x} by rule 2.a, since the other transaction has already read the previous version. These advantages come at the cost of potential transaction retries and additional storage overhead for temporary versions.
+
+TODO: figure
+
+MVTO appears to be well suited for implementing transactions on top of BigTable. Timestamps are already built into the BigTable data model, so they can be used to store transaction timestamps. Furthermore, the immutable nature of MVTO is in line with one of the core design principles underlying BigTable, namely exploiting immutability to avoid synchronization and to leverage garbage collection. Finally, BigTable is designed to dynamically scale as data grows, so it can more easily meet the requirement for additional storage than centralized database systems.
+
+\section{Transaction Manager}
+
+
+
+
 \section{Methods}
 To implement our proposal, we will utilize and build on several tools that are being developed in the context of the Apache Hadoop project. Specifically, we will harness the Hadoop Distributed File System (HDFS), the Hadoop database (HBase), and Zookeeper. We refer to these three components as the foundation. We will extend the foundation with four components which are combined to form a cohesive system: a transaction manager, an observer, an analyzer, and a partitioner. We will describe each component separately in the following subsections.
 

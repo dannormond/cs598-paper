@@ -1,0 +1,6 @@
+High level summary of what changed since our proposal
+=====================================================
+
+- Introduced a new section "Backgroud" that summarizes the technologies and algorithms underlying our work.
+  - Move discussion of foundation technologies (GFS/HDFS, BigTable/HBase, Chubby/Zookeeper) into Background section and align with publications
+  - New section in Background to explain multiversion timestamp ordering
