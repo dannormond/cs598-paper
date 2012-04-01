@@ -91,7 +91,7 @@ BigTable also implements several refinements to improve performance. Relevant in
 Finally, BigTable was recently enhanced with a feature called Coprocessors that allow executing code directly on tablet servers similar to stored procedures in traditional database systems ~\cite{Dean:2009}. They are attached to tablets and can be called by addressing rows or ranges of rows. The BigTable coprocessor client library automatically resolves the actual location.
 
 \subsection{HBase}
-HBase is an open source implementation of Google's BigTable. For the most part it closely implements the BigTable design, but there are some notable differences ~\cite{George:2011} some of which are relevant in this context. First, HBase uses a different naming scheme. Tablets are referred to as \emph{regions }, memtable is called \emph{MemStore}, and SSTables are called HFiles. Secondly, HBase builds on open source alternatives to GFS and Chubby, namely the Hadoop Distributed File System (HDFS) and Zookeeper ~\cite{Hunt:2010:ZWC:1855840.1855851}. HDFS differs from GFS ... Zookeeper differs from Chubby ...
+HBase is an open source implementation of Google's BigTable. For the most part it closely implements the BigTable design, but there are some notable differences ~\cite{George:2011} some of which are relevant in this context. First, HBase uses a different naming scheme. Tablets are referred to as \emph{regions }, memtables are called \emph{MemStores}, and SSTables are called HFiles. Secondly, HBase builds on open source alternatives to GFS and Chubby, namely the Hadoop Distributed File System (HDFS) and Zookeeper ~\cite{Hunt:2010:ZWC:1855840.1855851}. HDFS differs from GFS ... Zookeeper differs from Chubby ...
 Thirdly, HBase's coprocessor framework differs slightly from the one used in BigTable. HBase coprocessors are implemented as Java classes that are dynamically loaded by region servers as needed. They fall into two categories: \emph{observers} or \emph{endpoints}. Observers are invoked when certain events occur, similar to triggers in traditional database systems. They can be attached to a region, the master, or the write-ahead log to perform additional processing or intercept invocations. Endpoints expose custom operations to execute directly on the server hosting the data.
 Our system is built on HBase, so we will use HBase terminology in the following discussion.
 
@@ -109,11 +109,38 @@ This protocol allows for a higher degree of concurrency than lock-based protocol
 
 TODO: figure
 
-MVTO appears to be well suited for implementing transactions on top of BigTable. Timestamps are already built into the BigTable data model, so they can be used to store transaction timestamps. Furthermore, the immutable nature of MVTO is in line with one of the core design principles underlying BigTable, namely exploiting immutability to avoid synchronization and to leverage garbage collection. Finally, BigTable is designed to dynamically scale as data grows, so it can more easily meet the requirement for additional storage than centralized database systems.
+MVTO appears to be well suited for implementing transactions on top of BigTable/HBase. Timestamps are already built into the data model, so they can be used to store transaction timestamps. Furthermore, the immutable nature of MVTO is in line with one of the core design principles underlying BigTable, namely exploiting immutability to avoid synchronization and to leverage garbage collection. Finally, BigTable is designed to dynamically scale as data grows, so it can more easily meet the requirement for additional storage than centralized database systems.
 
 \section{Transaction Manager}
+To provide extended transaction management capabilities, we extend HBase with three components: a timestamp oracle (TSO), a region transaction manager (RTM), and a transaction client (TC). The TSO is a centralized server whose sole purpose is to generate globally unique and monotonically increasing timestamps. The RTM is a special coprocessor that manages transactions for a single region. It manages transactions for operations that only access data within its region, but it is also capable of participating in a transaction that spans several RTMs. The TC wraps the HBase client to augment the HBase API with transactional interfaces. It interacts with the TSO to obtain new timestamps and with the RTMs to manage transactions. It should be noted that this design does not require a centralized coordinator or any changes to HBase itself. Figure TODO illustrates these components in the context of HBase. The following subsections discuss these components in detail.
+
+TODO: figure
+
+\subsection{Region Transaction Manager}
+An RTM implements the MVTO protocol for all rows in the region it is associated with. It does this by intercepting all read and write operations through the region observer coprocessor interface. It also acts as a coprocessor endpoint to expose local commit and abort operations to TCs.
+
+The RTM is notified by the region whenever a row is about to be written and immediately after it was written. It processes the before-write notification by applying rule 2.a of the MVTO protocol for each column in the row touched by the write: If an older version of any column in the row has already been read by a younger transaction, then the current transaction is aborted. The RTM also remembers each cell written by the transaction so that it can remove them in case the transaction is aborted. Although the write itself is executed as an atomic unit, the notifications are not part of that unit. In particular, it is possible for a read operation to occur in between a write and one of the corresponding notifications. Therefore, the RTM also remembers which writes are currently in progress until it receives a notification that they have completed.
+
+Read operations retrieve all versions in the row whose timestamp are smaller than that of the transaction. The result set is passed to the RTM as part of the post-read notification, so it can filter it based on rule 1. of the MVTO protocol. For each column in the row it traverses the versions in descending order and applies the following algorithm: if the current version was written by an aborted transaction, the version is removed from the result set and the next is tried. Otherwise, the RTM records that the transaction read this version and removes all older versions of this column from the result set. If the transaction that wrote the version is still active, the RTM also records a read-from relationship between the transactions, so it can delay the commit or cascade aborts as needed. Prior to iterating over the versions, the RTM also checks if a pending write for a newer version exists that should be part of the result set, but is not (because it has not been applied yet). If this is the case, the reading (or writing) transaction must be aborted, because it has a view of the data that is inconsistent with the admitted write. If the read had come before the write, the write would have aborted.
+
+Deletes are handled as a special case of writes. During the write notifications the RTM remembers the additional bit identifying the write as a delete. When read data is filtered, any versions that are flagged as deleted are removed from the result set.
+
+ When a transaction is aborted, the RTM no longer considers it during write conflict detection. After the abort has been recorded, the RTM asynchronously finalizes the transaction by aborting any transactions that read from it and deleting any versions it has written into the datastore, including delete markers. When a transaction commits, the RTM waits until all transactions it read from have committed before recording the commit. In the asynchronous finalizer it notifies transactions that read from it about the commit and permanently applies deletes by removing delete markers and all older versions of the given cell from the datastore.
+
+\subsubsection{Version Cleanup}
+The operations described above only remove versions from the datastore that were written by aborted transactions or by delete operations of committed transactions. It is also necessary to remove committed versions that have been superseded by newer committed versions. While it would be possible to issue delete operations to the datastore as part of the post-commit finalizers, a more efficient approach is to hook a garbage collector into the region compaction process to simply omit old versions when new HFiles are written. This approach was developed in ~\cite{Junqueira:2011:LTS:2056318.2057148}. For this purpose, RTMs expose an operation that returns the oldest active transaction timestamp at any given time. For each cell, the garbage collector can omit any versions that carry timestamps smaller than that one, except for the last.
+
+\subsubsection{Recovery}
+
+\subsubsection{Distributed Transactions}
+
+\subsection{Timestamp Oracle}
+
+\subsection{Transaction Client}
 
 
+
+\section{Entity Group Detection}
 
 
 \section{Methods}
