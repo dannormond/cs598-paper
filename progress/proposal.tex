@@ -1,4 +1,5 @@
 \documentclass[10pt,final,journal]{IEEEtran}
+\usepackage{graphicx}
 
 \begin{document}
 \title{Self-Partitioning Cloud Datastore for Scalable Transaction Processing Proposal}
@@ -114,7 +115,12 @@ MVTO appears to be well suited for implementing transactions on top of BigTable/
 \section{Transaction Manager}
 To provide extended transaction management capabilities, we augment HBase with three components: a timestamp oracle (TSO), a region transaction manager (RTM), and a transaction client (TC). The TSO is a centralized server whose sole purpose is to generate globally unique and monotonically increasing timestamps. The RTM is a special coprocessor responsible for managing transactions for all operations that access rows in its associated region. Although it is optimized for local transactions, it is also capable of partiticpating in transactions that span several RTMs. The TC wraps the HBase client to augment the HBase API with transaction interfaces. It interacts with the TSO to obtain new timestamps and with the RTMs to manage transactions. It should be noted that this design does not require a centralized coordinator or any changes to HBase itself. Figure TODO illustrates these components in the context of HBase. The following subsections discuss these components in detail.
 
-TODO: figure
+\begin{figure}[!t]
+\centering
+\includegraphics{images/tm.pdf}
+\caption{Transaction Manager}
+\label{tm}
+\end{figure}
 
 \subsection{Region Transaction Manager}
 The RTM implements the MVTO protocol for all rows in the region it is associated with. It does this by intercepting all read and write operations through the region observer coprocessor interface. It also acts as a coprocessor endpoint to expose local commit and abort operations to TCs. The MVTO implementation at the core of the RTM is agnostic of the underlying datastore, i.e. although we apply it to HBase regions, any datastore that satisfies the underlying assumptions can make use of it.
@@ -138,7 +144,7 @@ The operations described above only remove versions from the datastore that were
 Each transaction is represented by an in-memory data structure that stores the state, the keys for read and written versions, and references to other transactions it read from. Three separate indices on these transactions are maintained in order to provide for efficient lookup and conflict detection. The main index is a binary search tree on the TID. It is used for direct lookup and to peridiodically scan transactions in the order they started to determine the first active transaction. In the processes any finalized aborted transaction is removed from the indices. Any finaliezd committed transaction that preecedes the first active transaction is also removed and garbage collected, but finaliezd committed transactions that follow it must be kept around, since they are still potentially needed for conflict detection. The second index stores transactions by the versions they have read by hashing keys (row+column) onto sorted maps of versions to sorted transaction sets. The third index is a hash map from keys to transactions that temporarily stores transactions by keys they are in the process of writing.
 
 \subsubsection{Recovery}
-RTMs must be able to survive region restarts, crashes, splits, and moves. Therefore, the data structures need to be recoverable from persistent storage. RTMs do this by logging each transaction operation to a write-ahead log, which is stored in a table by region. Old log entries are prediodically purged from the table based on the first active transaction timestamp. This reduces resource usage and speeds up the recovery process. When an RTM recovers from a region crash, it replays all log entries from its log into the data structures and then aborts transactions that were active at the time of the crash. Logging could be optimized using group commits ~\cite{eikum:2001:TIS} on a per-region basis, but we leave this for future work.
+RTMs must be able to survive region restarts, crashes, splits, and moves. Therefore, the data structures need to be recoverable from persistent storage. RTMs do this by logging each transaction operation to a write-ahead log, which is stored in a table by region. Old log entries are prediodically purged from the table based on the first active transaction timestamp. This reduces resource usage and speeds up the recovery process. When an RTM recovers from a region crash, it replays all log entries from its log into the data structures and then aborts transactions that were active at the time of the crash. Logging could be optimized using group commits ~\cite{Weikum:2001:TIS} on a per-region basis, but we leave this for future work.
 
 \subsubsection{Distributed Transactions}
 Although the main goal of this work is to provide means to localize transactions, we also need to support distributed transactions so that applications can initially run unoptimized and our learning algorithm can detect groupings. Users may also have a need for distributed transactions in production in certain situations where grouping is not possible. Distributed transactions are implemented via Zookeeper. When a TC detects the need for a distributed transaction, it creates a special transaction node in Zookeeper that identifies the transaction. Each RTM when asked to enlist in the distributed transaction creates an ephemeral sequence node under the transaction node. The RTM uses the node to vote for the outcome and the TC uses the node to detect server failure and to decide the outcome.
@@ -149,13 +155,28 @@ Globally unique timestamps are needed to ensure that the MVTO protocol generates
 \subsection{Transaction Client}
 The transaction management components described thus far can be used directly through the HBase API to implement transactions. However, to facilitate this task, we have implemented a client API wrapper around the HBase API. This TC is used to demarcate transaction boundaries using the familiar begin-commit-rollback idiom and it encapsulates the mapping of entity groups to regions to optimize for local transactions.
 
+\subsubsection{API}
+- closely resembles HBase API: API for creating tables and for creating/putting/deleting data.
+- timestamps are not exposed in the API, because they are managed by the system
+- additional API for defining entity groups across tables
+- scanners currently not supported
+
+\subsubsection{Entity Groups}
+
+
+\subsubsection{Transaction Implementation}
+- a transaction is initially started as a local transaction
+- once an entity from a different entity group is accessed, the TC converts it into a distributed transaction
+- note that the entity could be co-located in the same region, but the client 
 
 
 \section{Entity Group Detection}
 
 
 \section{Progress}
-We have made significant progress on the transaction manager implementation. The main functionality of the RTM is in place and tested on HBase. We still need to complete the implementation of the recovery log and the distributed transaction mechanism. We also need to finish the fail-over implementation of the TSO. 
+We have made significant progress on the transaction manager implementation. The main functionality of the RTM is in place and tested on HBase. We still need to complete the implementation of the recovery log, support fluent region splits, and add distributed transactions. We also need to finish the fail-over implementation of the TSO. On the TC side, we have the initial APIs in place, but need to implement entity groups in full generality.
+
+In our entity group detection algorithm ...
 
 
 \section{Methods}
