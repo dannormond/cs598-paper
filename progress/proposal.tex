@@ -106,9 +106,14 @@ a) If a transaction that started after \emph{i} has already read a version of \e
 b) otherwise the write operation is transformed into a write operation on version \emph{i} of \emph{x}.
 3. A commit operation by transaction \emph{i} is delayed until all transactions that have written versions of objects read by \emph{i} have been committed.
 
-This protocol allows for a higher degree of concurrency than lock-based protocols, because reads can be served from older versions while newer ones are being created. It is also deadlock free, since no locks are used and transactions only ever wait on transactions started before them to commit. In addition, recovery is simplified, because data is never modified in place. To undo a write means to simply remove the written version. It should also be pointed out that MVTO prevents the write skew anomaly permitted by snapshot isolation protocols as illustrated in figure TODO. The transaction that starts second will be forced to abort upon trying to write \emph{x} by rule 2.a, since the other transaction has already read the previous version. These advantages come at the cost of potential transaction retries and additional storage overhead for temporary versions.
+This protocol allows for a higher degree of concurrency than lock-based protocols, because reads can be served from older versions while newer ones are being created. It is also deadlock free, since no locks are used and transactions only ever wait on transactions started before them to commit. In addition, recovery is simplified, because data is never modified in place. To undo a write means to simply remove the written version. It should also be pointed out that MVTO prevents the write skew anomaly permitted by snapshot isolation protocols as illustrated in figure ~\ref{si}. The first transaction is forced to abort when it attempts to write a new version of \emph{y} by rule 2.a, since the second transaction has already read the previous version. These advantages come at the cost of potential transaction retries and additional storage overhead for temporary versions.
 
-TODO: figure
+\begin{figure}[!t]
+\centering
+\includegraphics{images/si.pdf}
+\caption{Write skew prevention}
+\label{si}
+\end{figure}
 
 MVTO appears to be well suited for implementing transactions on top of BigTable/HBase. Timestamps are already built into the data model, so they can be used to store transaction timestamps. Furthermore, the immutable nature of MVTO is in line with one of the core design principles underlying BigTable, namely exploiting immutability to avoid synchronization and to leverage garbage collection. Finally, BigTable is designed to dynamically scale as data grows, so it can more easily meet the requirement for additional storage than centralized database systems.
 
@@ -159,10 +164,11 @@ The transaction management components described thus far can be used directly th
 - closely resembles HBase API: API for creating tables and for creating/putting/deleting data.
 - timestamps are not exposed in the API, because they are managed by the system
 - additional API for defining entity groups across tables
+- handles configurable number of retries in case of conflict aborts using exponential back-off
 - scanners currently not supported
 
 \subsubsection{Entity Groups}
-
+- by default entity are mapped to rows in separate tables and sorted by key. transactions typically access entities that are related ...
 
 \subsubsection{Transaction Implementation}
 - a transaction is initially started as a local transaction
