@@ -3,7 +3,7 @@
 \usepackage{graphicx}
 
 \begin{document}
-\title{Self-Partitioning Cloud Datastore for Scalable Transaction Processing Proposal}
+\title{Scalable Transaction Processing for Cloud Datastores through Optimized Partitioning}
 \author{Benjamin Busjaeger, Jonathan Chu, Daniel Ormond \\
 \{busjaeg2, jmchu2, ormond1\}@illinois.edu}
 \date{Feb 2012}
@@ -28,29 +28,24 @@ The move to distribute databases creates new challenges in the form of data part
 
 To provide scalable performance, an effective data partitioning scheme is needed which co-locates related data and assigns partitions to nodes such that bandwidth consumption is minimized and response time reduced. We propose to develop a transactional datastore along with a new methodology for partitioning data that utilizes machine learning. By using machine learning algorithms to train on past data access patterns, we believe we can create a new approach for data partitioning that will be more effective than those developed in the past.
 
-\section{Literature Survey}
-In response to the lack of scalability and high operational cost of traditional RDBMSs, large Internet companies have developed their own data storage solutions. The most notable examples include Google's BigTable ~\cite{Chang:2006:BDS:1267308.1267323}, Yahoo's PNUTS ~\cite{Cooper:2008:PYH:1454159.1454167}, and Amazon's Dynamo ~\cite{DeCandia:2007:DAH:1323293.1294281}. These key/value databases automate many aspects of distributed storage, but provide limited consistency guarantees and lack partitioning schemes optimized for transaction processing. As a result, numerous approaches have been proposed recently  to extend these key/value stores with more powerful transaction models. At the same time several designs have been developed that adapt RDMBSs to make them more suitable for cloud workloads. We will first examine these OLTP cloud datastore architectures and subsequently survey relevant work on optimized data partitioning and placement.
+In response to the lack of scalability and high operational cost of traditional RDBMSs, large Internet companies have developed their own data storage solutions. The most notable examples include Google's BigTable ~\cite{Chang:2006:BDS:1267308.1267323}, Yahoo's PNUTS ~\cite{Cooper:2008:PYH:1454159.1454167}, and Amazon's Dynamo ~\cite{DeCandia:2007:DAH:1323293.1294281}. These key/value databases automate many aspects of distributed storage, but provide limited consistency guarantees and lack partitioning schemes optimized for transaction processing.
 
-\subsection{OLTP Cloud Data Stores}
-OLTP cloud datastores can be classified according to several salient characteristics. One of them, as previously mentioned, is whether they are based on key/value datastores or relational databases. Another is whether or not they employ partitioning at the data model level to reduce or eliminate distributed transactions at runtime. Yet another distinguishing feature is the supported isolation level. Some provide serializability for all operations, others offer serializability but only support weaker isolation for range queries, yet others support snapshot isolation. In the following we analyze several recent developments with respect to this classification and summarize our findings in Table 1.
+\section{Related Work}
+Research on large-scale OLTP systems appears to be coming from at least two directions. On one hand, numerous approaches have been proposed recently for extending BigTable-like datastores with more powerful transaction models. On the other hand, several recent publications describe how to adapt RDBMSs to make them more suitable for cloud workloads. The common theme across these approaches is a departure from full featured ACID transactions across the full data set. The proposals either reduce transaction isolation levels to make global transactions feasible or restrict serializable transactions to a subset of the data. In the latter case selection of these subsets is critical for ensuring efficient transaction processing, so algorithms have emerged to automate this process. We will first examine and classify OLTP cloud datastore architectures and subsequently survey relevant work on optimized data partitioning.
 
-Cloud SQL Server ~\cite{Campbell:2010:ESF:1807167.1807280, Bernstein:2011:AMS:2004686.2005651} is the relational DBMS underlying Microsoft's Azure cloud platform. At its core, it is based on Microsoft SQL Server with a design center on scalability through partitioning and primary-copy replication. Serializable ACID transactions are supported, but limited to a single partition to avoid distributed transactions. A partition can be a whole logical database, referred to as a table group, if it is sufficiently small, or a set of rows from a table group that have been assigned a common partitioning key by the user in the database schema.
+\subsection{OLTP Cloud Datastores}
+\textbf{Cloud SQL Server} ~\cite{Campbell:2010:ESF:1807167.1807280, Bernstein:2011:AMS:2004686.2005651}, \textbf{ElasTraS} ~\cite{Das:2009:EET:1855533.1855540, Das:2010:EAE}, and \textbf{Relational Cloud} ~\cite{Curino:2011:JPMWMBZ11} describe approaches for scaling out different relational DBMSs. Cloud SQL Server augments Microsoft SQL Server with partitioning and primary-copy replication. Serializable ACID transactions are supported, but limited to a single partition. A partition can be a whole logical database, referred to as a table group, if it is sufficiently small, or a set of rows from a table group that have been assigned a common partitioning key by the user in the database schema. ElasTraS uses hierarchical schema-level partitioning and also restricts transactions to one partition. It differs from Cloud SQL Server in that it decouples storage from metadata management through the use of a distributed file system. This allows for a dynamic mapping between partitions and nodes. Relational Cloud combines a workload-aware approach for efficient data placement with a graph-based partitioning algorithm for data co-location discussed in the next section. ACID transactions are supported within and across partitions. Although our approach is not targeted at RDBMSs, it shares some of the partitioning ideas.
 
-ElasTraS ~\cite{Das:2009:EET:1855533.1855540, Das:2010:EAE} uses similar ideas to scale-out relational DMBSs to cloud workloads. It uses schema-level partitioning and restricts transactions to single partitions by assigning them to Owning Transaction Managers (OTMs). Mapping between partitions and node is dynamic to provide elasticity. ElasTraS differs from Cloud SQL Server in that it uses a distributed file system to decouple storage from metadata and transaction management. This design is borrowed from BigTable as are several other aspects of the design.
+\textbf{Percolator} ~\cite{Peng:2010:LIP:1924943.1924961}, \textbf{HBaseSI} ~\cite{Zhang:2010:5697970} and \textbf{ReTSO} ~\cite{Junqueira:2011:LTS:2056318.2057148} are different approaches for adding global transactions with snapshot isolation semantics to BigTable-like datastores. Percolator is specifically designed to allow incremental search index construction, so it is optimized for throughput and not suitable for latency-sensitive applications. HBaseSI is a pure client API that uses a set of custom tables and atomic test-and-set operations to manage transactions without central coordination. ReTSO implements a lock-free commit algorithm using a centralized Transaction Status Oracle (TSO). Our approach provides a stronger form of isolation and is neither fully decentralized nor centralized. Nevertheless, it builds on several ideas from these publications to implement a non-invasive and efficient concurrency control protocol.
 
-Relational Cloud ~\cite{Curino:2011:JPMWMBZ11} aims to establish an architecture for provisioning multi-tenant relational databases as a service. It combines a workload-aware approach for efficient data placement with a graph-based partitioning algorithm for co-locating data items frequently accessed together in transactions. ACID transactions are supported within and across partitions. The graph-based partitioning algorithm, which is further discussed in the next section,  sets Relational Cloud apart from Cloud SQL Server and ElasTraS, which use tree-based partitioning based on user-defined keys.
+\textbf{G-Store} ~\cite{Das:2010:GSD:1807128.1807157} and \textbf{CloudTPS} ~\cite{Wei:2011:5740834} build transaction capabilities targeted at specific use cases on top of BigTable-like datastores. G-Store introduces a key group protocol to provide ACID transactions over a dynamically selected set of keys. It is intended for applications which need to execute transaction across frequently changing groups of entities, that are non-overlapping, so it has limited applicability. CloudTPS is designed for web application workloads and assumes short-lived transactions that access small data sets known prior to starting the transaction. It interposes a group of Local Transaction Managers (LTMs) between clients and datastores which load data items and transaction state into memory for efficient processing. This implies the need for a separate server cluster with its own fail-over and recovery mechanisms.
+
+\textbf{Deuteronomy} ~\cite{Levandoski:2011:8530161} defines a transaction component (TC) capable of providing full ACID transactions for any datastore that implements a well-defined data component (DC) interface. The TC applies concurrency control and undo/redo logging at the logical record level as opposed to at the physical page level. Our transaction manager also operates against an abstract datastore contract to make it portable. However, it uses different concurrency control and recovery algorithms and does not rely on a centralized TC.
+
+\textbf{MegaStore} ~\cite{Furman:2008:8530095, Baker:2011:8530095} tries to bridge the gab between RDBMSs and NoSQL datastores by offering a declarative schema language, secondary indices, and full ACID transactions within partitions. It also describes a transactional cross-datacenter replication algorithm to achieve high availability 
+
 
 MegaStore ~\cite{Furman:2008:8530095, Baker:2011:8530095} is Google's highly available data store powering its Web platform service App Engine and many internal services. It extends BigTable with the notion of entity groups, which co-locate rows in the same BigTable partition to provide localized ACID transactions. Operations that span multiple entity groups are exposed to weaker consistency semantics. Megastore also builds several other notable features on top of BigTable, which include secondary indexes and synchronous data replication across datacenters.
-
-G-Store ~\cite{Das:2010:GSD:1807128.1807157} augments key/value stores with a key group protocol to provide ACID transactions over a dynamically selected set of keys. It targets specific applications which need to execute transactions across frequently changing groups of entities. Since the entity groups are non-overlapping, it is not generally applicable.
-
-CloudTPS ~\cite{Wei:2011:5740834} interposes a group of Local Transaction Managers (LTMs) between clients and key/value data stores to provide full ACID semantics. It is designed for web application workloads and makes the limiting assumptions that transactions are short-lived, access few data items known beforehand, and can return older but consistent snapshots of data for complex read queries. The last assumption has been removed by more recent work ~\cite{Wei:2011:CJQ}, which adds consistent join query support. Data items accessed by transactions are loaded into memory of LTMs using consistent hashing and eventually written back to the datastore. Transaction state is also maintained in memory. Atomicity is achieved by two phase commit across LTMs and durability is ensured by replicating in-memory state across LTMs.
-
-Deuteronomy ~\cite{Levandoski:2011:8530161} focuses on separating transaction and data management into a transaction component (TC) and a data component (DC). The TC only expects a record-oriented interface with atomic operations from the DC, but is otherwise agnostic of how data is stored. The TC provides full ACID guarantees through concurrency control and undo/redo logging that operates on logical as opposed to physical entities. This makes it portable across a variety of data storage solutions. The system relies on a centralized TC to handle all requests, which may not be feasible for large cloud deployments.
-
-HBaseSI ~\cite{Zhang:2010:5697970} and ReTSO ~\cite{Junqueira:2011:LTS:2056318.2057148} are different approaches for adding transactions with snapshot isolation to HBase, an open source implementation of BigTable. Neither approach uses partitioning to achieve this. ReTSO implements a lock-free commit algorithm using a centralized Transaction Status Oracle (TSO). HBaseSI uses a set of custom tables and several HBase features, such as atomic row writes, to implement transactions. Both make use of BigTable's built-in timestamp mechanism.
-
-The design we envision synthesizes ideas from several of these systems with our unique partitioning approach to provide a strongly consistent key/value datastore.
 
 \begin{table}[!t]
 \renewcommand{\arraystretch}{1.3}
@@ -59,18 +54,19 @@ The design we envision synthesizes ideas from several of these systems with our 
 \centering
 \begin{tabular}{|c|c|c|c|}
 \hline
-\bfseries Data Store  & \bfseries Data Model & \bfseries  Partitioning & \bfseries Isolation \\
+\bfseries Data Store  & \bfseries Data Model & \bfseries  Part. & \bfseries Isolation \\
 \hline
 \hline
-Cloud SQL Server & relational & yes & serializable \\
+Cloud SQL & relational & yes & serializable \\
 ElasTraS & relational & yes & serializable \\
-Relational Cloud & relational & yes & serializable \\
-Megastore & key/value & yes & serializable/snapshot \\
-G-Store & key/value & yes (logical) & serializable \\
-CloudTPS & key/value & no & serializable/snapshot \\
+Rel. Cloud & relational & yes & serializable \\
+Megastore & BigTable & yes & serializable \\
+G-Store & BigTable & yes & serializable \\
+CloudTPS & BigTable & no & serializable \\
 Deuteronomy & agnostic & no &serializable \\
-HBaseSI & key/value & no & snapshot \\
-ReTSO & key/value & no & snapshot \\
+Percolator & BigTable & no & snapshot \\
+HBaseSI & BigTable & no & snapshot \\
+ReTSO & BigTable & no & snapshot \\
 \hline
 \end{tabular}
 \end{table}
