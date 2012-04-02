@@ -113,6 +113,7 @@ This protocol allows for a higher degree of concurrency than lock-based protocol
 
 \begin{figure}[!t]
 \centering
+\hspace*{-.2in}
 \includegraphics{images/si.pdf}
 \caption{Write skew prevention}
 \label{si}
@@ -125,7 +126,7 @@ To provide extended transaction management capabilities, we augment HBase with t
 
 \begin{figure}[!t]
 \centering
-\hspace*{-.1in}
+\hspace*{-.15in}
 \includegraphics{images/tm.pdf}
 \caption{Transaction Manager}
 \label{tm}
@@ -162,21 +163,19 @@ Although the main goal of this work is to provide means to localize transactions
 Globally unique timestamps are needed to ensure that the MVTO protocol generates globally serializable schedules. It would be possible to implement Lamport clocks ~\cite{Lamport:1978:TCO:359545.359563} for this purpose, but using a centralized timestamp server is an approach adopted by many recent distributed transaction managers that rely on timestamp ordering (e.g., ~\cite{Peng:2010:LIP:1924943.1924961, Wei:2011:5740834}). The TSO must be highly available and recoverable. To achieve this, it can use a similar fail-over mechanism to the HBase master, in which a hot-standby monitors Zookeeper to take over if the primary were to fail. The primary TSO either replicates the latest timestamp it has handed out or persists it in shared storage, so the secondary can resume to generate increasing timestamps. To reduce the number of RPCs or disk accesses, group commits can be applied here as well.
 
 \subsection{Transaction Client}
-The transaction management components described thus far can be used directly through the HBase API to implement transactions. However, to facilitate and optimize their use, we have implemented a Transaction Client component that exposes as subset of the HBase API and adds additional APIs for transaction management. Clients can use the TC APIs to create and delete tables, to execute get, put, and delete operations on rows, and to demarcate transaction boundaries using the familiar being-commit-rollback idiom. The APIs also include a facility to group related tables for the purpose of co-locating their data. Unlike the HBase API, the TC API does not expose timestamp to clients, since they are managed by the system. If timestamps were needed at the API level, it would be possible to store multiple versions under a single timestamp as done in ~\cite{Peng:2010:LIP:1924943.1924961}.
+The transaction management components described thus far can be used directly through the HBase API to implement transactions. However, to facilitate and optimize their use, we have implemented a Transaction Client component that exposes as subset of the HBase API and adds additional APIs for transaction management. Clients can use the TC APIs to create and delete tables, to execute get, put, and delete operations on rows, and to demarcate transaction boundaries using the familiar being-commit-rollback idiom. Unlike the HBase API, the TC API does not expose timestamp to clients, since they are managed by the system. If timestamps were needed at the API level, the system could store multiple versions under a single timestamp as described in ~\cite{Peng:2010:LIP:1924943.1924961}.
 
 \subsubsection{Entity Groups}
-By default, logical entities are mapped to separate rows in separate tables. The row key is typically either a generated identifier or a field that uniquely identifies the entity. Since rows are sorted in lexicographical order and partitioned randomly across region servers, it is unlikely that semantically related entities are stored in the same region. Conversely, transactions are generally executed across semantically related entities, not entities with adjacent keys. Therefore, the default partitioning scheme will, with high probability, result in a large number of distributed transactions. To minimize the number of distributed transactions, TCs need to provide the ability to co-located related entities in the same region.
+By default, logical entities are mapped to separate rows in separate tables. The row key is typically either a generated identifier or a field that uniquely identifies the entity. Since rows are sorted in lexicographical order and partitioned randomly across region servers, it is unlikely that semantically related entities are stored in the same region. Conversely, transactions are generally executed across semantically related entities, not entities with adjacent keys. Therefore, the default partitioning scheme will, with high probability, result in a large number of distributed transactions. To minimize the number of distributed transactions, TCs also expose APIs to declare relationships between entities for the purpose of co-locating them in the same region.
 
-The approach we have adopted for achieving co-location is that of ~\emph{entity groups} presented in ~\cite{Baker:2011:8530095}. Entity groups form a hierarchical tree of entities starting from a root entity. They can either be statically declared through additional metdata associated with tables, or dynamically constructed at runtime. In the former case, each child table declares its parent type and the column that contains the identifier of the parent. In the latter case, a row is constructed with a reference to its parent row.
+The APIs are based on the concept of ~\emph{entity groups} as described in ~\cite{Baker:2011:8530095}. Entity Groups are hierarchical trees of entities descending from a root entity. They can either be statically declared through additional metdata associated with tables, or dynamically constructed at runtime. In the former case, each child table declares a reference to its parent table along with the column key that stores the parent key. In the latter case, a reference to a parent instance is included when the child instance is created.
 
-The TC currently supports statically declared entity groups by providing APIs to group tables and to identify the relationships between them. Internally, tables in the same entity group are mapped onto a single HBase table. To disambiguate the columns, each column key is prefixed with the name of the logical table. To co-locate child rows with their parent rows, child row keys are prefixed with the parent row key. Finally, in order to ensure that entity groups are never split across regions, a custom split policy is configured for the table that instructs HBase to never split rows that share a common prefix.
+The TC supports static entity groups by providing APIs to group tables and to declare the relationships between them. Internally, tables in the same entity group are mapped onto a single HBase table. To disambiguate the columns, each column key is prefixed with the name of the logical table. To co-locate child rows with their parent rows, child row keys are prefixed with the parent row key. Finally, in order to ensure that entity groups are never split across regions, the table is configured with a split policy that instructs HBase to never split rows that share a common prefix. Note that this shared table approach does not drastically increase storage requirements given the sparse and compressed storage model of HBase.
 
 \subsubsection{Transaction Implementation}
-- a transaction is initially started as a local transaction
-- once an entity from a different entity group is accessed, the TC converts it into a distributed transaction
-- note that the entity could be co-located in the same region, but the client 
-- handles configurable number of retries in case of conflict aborts using exponential back-off
+When a transaction is started, the TC obtains a new timestamp from the TSO. It attaches this timestamp as an attribute to every operation executed in the scope of the transaction to make it available to the receiving RTM. It also checks for each operation whether it is accessing a row in the same entity group as previous operations. As long as this is the case, it can assume it is interacting with a single RTM. If an operation accesses data from a different entity group, it can no longer make this assumption, so it upgrades to a distributed trasaction by asking all RTMs to enlist via Zookeeper. When the TC receives a commit request, it either forwards it to the RTM managing the local transaction via the coprocessor endpoint or executes a two-phase-commit through Zookeeper.
 
+The TC also transparently handles retries in case transactions are aborted due to ordering conflicts. Furthermore, it converts delete operations exposed in the client API into HBase put operations marked with the special delete flag expected by the receiving RTM. The TC is also responsible for setting the proper time-range for get operations to ensure all older versions are retrieved for the RTM to filter.
 
 \section{Entity Group Detection}
 
