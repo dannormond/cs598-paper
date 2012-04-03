@@ -170,7 +170,7 @@ When a transaction is started, the TC obtains a new timestamp from the TSO. It a
 The TC also transparently handles retries in case transactions are aborted due to ordering conflicts. Furthermore, it converts delete operations exposed in the client API into HBase put operations marked with the special delete flag expected by the receiving RTM. The TC is also responsible for setting the proper time-range for get operations to ensure all older versions are retrieved for the RTM to filter.
 
 \section{Entity Group Recommender}
-The Entity Group Recommender analyzes transaction logs generated in a staging or production environment to suggest appropriate entity groupings...
+The Entity Group Recommender analyzes transaction logs generated in a staging or production environment to suggest appropriate entity groupings.
 
 The analyzer determines how data should be partitioned and where the formed partitions should be placed. We envision using a data warehouse to implement this component. The data warehouse could run on the same infrastructure to maximize utilization, or in a separate cluster to free the OLTP system from carrying the computational load. As such, possible implementation technologies include Apache Hive or a relational database system optimized for online analytical processing (OLAP). The data structures of this component will be optimized to run machine learning algorithms.
 
