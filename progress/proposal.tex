@@ -10,7 +10,7 @@
 \maketitle
 
 \begin{abstract}
-We are designing a new cloud data storage system that will be highly scalable and yet still be able to provide strong data consistency guarantees. Our system extends existing cloud key/value stores with modular components for transaction management and access-based partitioning. We plan to utilize clustering algorithms from the machine learning field to co-locate related data for efficient transaction processing and to assign partitions to optimal locations in the server clusters. Through continuous analysis of execution logs, our system should be able to recognize data access patterns and use that knowledge to partition data within the cluster to better fit within those patterns. With our data partitioning scheme, we hope to lower time delays, reduce bandwidth, and ultimately improve the speed of online transaction processing without sacrificing data consistency.
+We have designed a novel transaction manager for cloud datastores of the BigTable family that provides full ACID transactions within data partitions. This allows us to improve the consistency guarantees without significantly impacting the high scalability or availability of these systems. We have also implemented a learning algorithm that derives groupings of entities from transaction logs to optimize data co-location for transaction processing.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -30,7 +30,7 @@ Our work aims to extend the transaction support of NoSQL datastores in the BigTa
 
 \begin{enumerate}
 \item A novel transaction manager for BigTable-like datastores that is optimized for executing localized transactions.
-\item An algorithm that detects related data items for the purpose of co-locating them
+\item An algorithm that detects related data items for the purpose of co-locating them.
 \end{enumerate}
 
 \section{Related Work}
