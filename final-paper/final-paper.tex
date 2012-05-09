@@ -12,7 +12,7 @@
 \maketitle
 
 \begin{abstract}
-Troups is a novel transaction manager for cloud datastores of the BigTable family that provides full ACID transactions across co-located data items. It includes a mechanism for grouping related rows and an algorithm that aids users in deciding what groups to form by identifying data types and items frequently accessed together in transaction logs. This allows us to improve the consistency guarantees of these systems without significantly impacting their high scalability or availability.
+Troups is a novel transaction manager for cloud datastores of the BigTable family that provides full ACID transactions across co-located data items. It includes a mechanism for grouping related rows and an algorithm that aids users in deciding what groups to form by identifying data types and items frequently accessed together in transaction logs. This allows us to improve the consistency guarantees of these systems without significantly impacting their high scalability or availability. We also introduce the idea of swapping in data items by observing their cyclic frequencies in the past through our algorithm.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -271,6 +271,9 @@ We have also presented a flexible mechanism for forming static or dynamic row gr
 To aid the user in identifying which rows are frequently accessed together in transactions we have developed a clustering algorithm based on transaction logs. Users can analyze the output of this algorithm to help them in their process of deciding which rows to group together. The strength of this algorithm is TODO
 
 Furthermore, we discussed a timestamp service that is primarily used by our transaction manager, but is generally usable in distributed systems that need to manage transient versions of data. We investigated several possible implementations, some of which can be easily embedded into other applications.
+
+Moreover, we explored the use of our time swapping algorithm to partition data right before a user needs to access it to improve real time performance.
+We implemented our algorithm and simulated a test run.
 
 Finally, we implemented a comprehensive and extensible research prototype which we plan to make publicly available to the research community through the hadoop ecosystem in the future.
 
