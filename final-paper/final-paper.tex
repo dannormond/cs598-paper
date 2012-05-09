@@ -254,15 +254,16 @@ get most frequently accessed data unit from priority queue\;
 \label{reclaim}
 \end{algorithm}
 
-We implemented our algorithm using JAVA 1.6 and generated a dataset to test the correctness of running the algorithm. Our results measured the hit accuracy which is the percentage of times that a dataset was called from a server and the server already had that dataset on disk available. If that data was not on disk, then that would be considered a miss and that data would have to be retrieved later on. On our simulated dataset, we measured the hit accuracy over the days since the learning phase. The reasoning for looking at this is to take into account the variation that a dataset would see as the days since the learning phase passed. As more time passes, one would expect to see less predictable performance from when the learning phase took place as new and more users access different data items that come into the system. It is important to measure a systems performance on this metric so that one knows how often to retrain on a learning data set. For our particular dataset the hit percent accuracy was high at 85\% on the first day and gradually decreased by the end of the week to 49\%. In this case, it would be wise to retrain the dataset every week to get better performance. Keep in mind that there are many different datasets and web services available that would have greatly different performance results. Our results are only particular to the dataset that we generated, but they show the potential efficiency and validity of the algorithm for certain cases.
-
-\begin{figure}[!t]
+\begin{figure}[!b]
 \centering
 \hspace*{-.2in}
 \includegraphics{images/hitaccuracy.png}
 \caption{Hit Accuracy of Time Swap Algorithm}
 \label{ts}
 \end{figure}
+
+
+We implemented our algorithm using JAVA 1.6 and generated a dataset to test the correctness of running the algorithm. Our results measured the hit accuracy which is the percentage of times that a dataset was called from a server and the server already had that dataset on disk available. If that data was not on disk, then that would be considered a miss and that data would have to be retrieved later on. On our simulated dataset, we measured the hit accuracy over the days since the learning phase. The reasoning for looking at this is to take into account the variation that a dataset would see as the days since the learning phase passed. As more time passes, one would expect to see less predictable performance from when the learning phase took place as new and more users access different data items that come into the system. It is important to measure a systems performance on this metric so that one knows how often to retrain on a learning data set. For our particular dataset the hit percent accuracy was high at 85\% on the first day and gradually decreased by the end of the week to 49\%. In this case, it would be wise to retrain the dataset every week to get better performance. Keep in mind that there are many different datasets and web services available that would have greatly different performance results. Our results are only particular to the dataset that we generated, but they show the potential efficiency and validity of the algorithm for certain cases.
 
 \section{Evaluation}
 The evaluation of Troups was done in comparison with HBase to show the effects of running with transaction on different sized clusters.  Evaluation was done on cluster sizes of 4 and 8 nodes running one Hadoop/HBase master and 3-7 data nodes.  Each node in the cluster was configured from the same image using Amazon EC2 as a high CPU instance.  Two Troups configurations were evaluated to show the difference of the timestamp implementation.
