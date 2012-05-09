@@ -219,32 +219,17 @@ Since retrieval of aborted versions is rare, the maximum number of versions to r
 The TM maintains several indices on transactions to allow for efficient conflict detection. The time complexity of enforcing the OMVTO conflict rule is $O(n \: log(m))$, where $n$ is the number of versions for the key and $m$ is the maximum number of transactions that read a given version. Therefore, the cost is relatively low if the write frequency on any given key is low.
 
 \subsubsection{Recovery}
-BigTable already ensures that single row mutations are atomic. Therefore, the TM only needs to ensure that all operations executed in the scope of a transaction are committed or rolled back atomically. To achieve this, the TM tracks the keys of each cell written by a transaction. If a transaction is aborted, the TM first marks the transaction aborted so it is no longer considered for write conflict detection. It then aborts any transaction that read from the aborted one and deletes any versions the aborted transaction has written, including delete markers. Until this step completes, all versions written by the aborted transaction are filtered out from read result sets. When a transaction tries to commit, the TM blocks it if any transactions it read from is still active. If one of these transactions aborts, the blocked transaction is also aborted. If all them commit, the transaction is committed. The committed transaction is then finalized by removing any 
-delete markers as described above.
+Removing cells for aborted transactions is done asynchronously after the transaction abort is recorded. The delete operation against the datastore is idempotent so it can be retried until all cells have been successfully removed. Until this step completes, all versions written by the aborted transaction are filtered out from read result sets.
 
-- The TM achieves this by storing log records in a global log table that indexes records by table name, row group key, and log sequence number. 
+The transaction log is implemented through a separate HBase table with group keys serving as row keys, log sequence numbers serving as timestamps, and log records stored as values. We attempted to allow storing log records in a dedicated column in the user table to avoid potential network overhead, however, HBase's current implementation does not allow for such callbacks from Coprocessors.
 
-A custom tablet split policy that uses the row group policy to determine acceptable split points ensures that row groups and therefore log records pertaining to a single transaction branch are never split across tablets.
+ \subsubsection{Version Cleanup}
+Obsolete versions are removed from the datastore by hooking into the compaction process. To achieve this, the transaction manager returns a custom filter through the observer interface which for each cell omits all versions that are smaller than the timestamp of the last reclaimed transaction. This approach was developed in ~\cite{Junqueira:2011:LTS:2056318.2057148}.
 
-To speed up the recovery process and to limit the size of the log table, the TM periodically truncates the log for row groups in its range. For this purpose it remembers the first log sequence number of each transaction. When it receives a timestamp reclamation notification, it finds the highest log sequence number among the reclaimable transactions. Since active transactions with higher timestamps may have started locally before transactions with lower timestamps, the TM also scans active transactions to lower the found log sequence number if needed. It then truncates with log at the found sequence number.
-
-\subsubsection{Version Cleanup}
-To limit the storage space required for versions, it is necessary to remove committed versions that have been superseded by newer committed versions. While it would be possible to remove obsolete version when finalizing committed transactions, a more efficient approach is to hook a garbage collector into the compaction process to simply omit old versions when SSTables are written. This approach was developed in ~\cite{Junqueira:2011:LTS:2056318.2057148}. In order to know which versions can be discarded, the TM registers as a reclamation listener with the TSS. For each cell, the garbage collector can omit any versions that carry timestamps smaller or equal to the last unused timestamp, except for the highest. The TM also discards the in-memory state of transactions that started before the last unused timestamp, because it is no longer needed for conflict detection.
-
+To truncate the log, the transaction manager stores the begin and end log sequence number for each transaction. Whenever it discards transaction state, it determines the highest log sequence number used by the remaining transactions. It does this by first scanning the discarded transactions for the highest begin number. Since active transactions with higher timestamps may have started locally before transactions with lower timestamps, the TM also scans active transactions to lower the recorded log sequence number if needed. If all transactions are discarded, the highest end log sequence number is selected. The transaction manager then deletes all log records older than the given sequence number.
 
 \subsection{Transaction Client}
-- currently supports subset of HBase API due to time limitations
-- associates transaction context with each enlisted data access operation by annotating it with the transaction identifier.
-- uses separate threads to perform 2PC
-
-
- Also, we currently only support a subset of the BigTable API due to time constraints. In particular, we have not integrated range queries with the transaction API.
-
-\subsubsection{Recovery Component}
-
-To ensure atomicity is preserved across tablet lifecycle changes and tablet server crashes, transaction state transitions and data access operations need to be logged to durable storage. Since tablets can be split or merged at any time, the log needs to be split or merged along with it. A custom tablet split policy that uses the row group policy to determine acceptable split points ensures that row groups and therefore log records pertaining to a single transaction branch are never split across tablets. When a tablet starts, it replays log records for its table only from row groups that are within it's row key range.
-
-When a tablet is stopped, the TM stops accepting new transactions and drains out existing ones. When a tablet is started, the associated TM first replays all log records and if necessary recovers any non-finalized transactions. Active transactions are aborted if the TM does not hold the corresponding timestamp. Prepared transactions are also aborted if the TM does not hold the corresponding timestamp reference, unless the reference is persisted, in which case the TM attempts to commit the transaction. The TM also resumes finalization for any committed or aborted transactions that have not been finalized.
+The transaction client invokes transaction managers through the Coprocessor client library. It propagates the transaction context for enlisted data access operations by annotating them with an attribute storing the transaction identifier. The client currently supports a subset of HBase APIs due to time constraints.
 
 \subsection{Row Group Detection}
 The Entity Group Recommender analyzes transaction logs generated in a staging or production environment to suggest appropriate entity groupings.
