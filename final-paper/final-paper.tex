@@ -235,15 +235,32 @@ When we looked at the different clustering strategies that had been used in lite
   Our time swap algorithm runs in two phases, first is the learning phase. In the learning phase, a history of the transaction logs from the database is taken in. The time calendar is divided into sections that the user may care for such as by hour, day, week, etc. Common data access patterns are scanned for to determine which set of items a user will usually access when accessing the database. The algorithm will then group these items together into a group associated with that user. Next, the algorithm counts the frequency with which that group of data items is accessed by that user. By counting the frequency, the computer can determine what the most used data items are and thus give those data items more priority. There are many different types of datasets out there that are used for a multitude of purposes. Our algorithm will work better for certain cases and may not be as helpful for others. For example, our algorithm assumes that data which is frequently accessed previously will continue to be accessed in the future. However, there may be web applications which are highly dynamic and rarely manipulate the same data over and over again.
 	In the next phase of the algorithm, the real time phase, the information gained from the learning phase is used to make decisions on how to proceed and prefetch data. In the learning phase, a priority queue was created to maintain which data items were the most relevant to be stored together. That way, in the event that the disk did not have enough storage to store all the necessary data, it would choose the ones with highest priority. It checks the priority queue and swaps in the new data for an old data item from a previous period.
 
-\begin{figure}[!t]
-\centering
-\hspace*{-.2in}
-\includegraphics{images/timeswapalgo.png}
-\caption{Time Swap Algorithm}
-\label{ts}
-\end{figure}
+\begin{algorithm}
+\SetAlgoLined
+\DontPrintSemicolon
+\underline{\textbf{Learning Phase}}\;
+Divide calendar into time periods\;
+\For{$transaction\leftarrow transactions$} {
+	group the associated accessed data items into one unit\;
+	keep track of what period a unit is accessed in and how frequently\;
+	sort data units by how frequently they are accessed in a time period and place into priority queue\;
+}
+\BlankLine
+\BlankLine
+\underline{\textbf{Real Time Phase}}\;
+Just before the start of a time period$:$\;
+get most frequently accessed data unit from priority queue\;
+\eIf{not already on disk} {
+	swap out with old data items from a previous time period\;
+	}{
+	continue
+	}
 
-We implemented our algorithm using JAVA 1.6 and generated a dataset to test the correctness of running the algorithm. Our results measured the hit accuracy which is the percentage of times that a dataset was called from a server and the server already had that dataset on disk available. If that data was not on disk, then that would be considered a miss and that data would have to be retrieved later on. On our simulated dataset, we measured the hit accuracy over the days since the learning phase. The reasoning for looking at this is to take into account the variation that a dataset would see as the days since the learning phase passed. As more time passes, one would expect to see less predictable performance from when the learning phase took place as new and more users access different data items that come into the system. It is important to measure a systems performance on this metric so that one knows how often to retrain on a learning data set. For our particular dataset the hit percent accuracy was high at 85% on the first day and gradually decreased by the end of the week to 49%. In this case, it would be wise to retrain the dataset every week to get better performance. Keep in mind that there are many different datasets and web services available that would have greatly different performance results. Our results are only particular to the dataset that we generated, but they show the potential efficiency and validity of the algorithm for certain cases.
+\caption{Transaction Reclamation}
+\label{reclaim}
+\end{algorithm}
+
+We implemented our algorithm using JAVA 1.6 and generated a dataset to test the correctness of running the algorithm. Our results measured the hit accuracy which is the percentage of times that a dataset was called from a server and the server already had that dataset on disk available. If that data was not on disk, then that would be considered a miss and that data would have to be retrieved later on. On our simulated dataset, we measured the hit accuracy over the days since the learning phase. The reasoning for looking at this is to take into account the variation that a dataset would see as the days since the learning phase passed. As more time passes, one would expect to see less predictable performance from when the learning phase took place as new and more users access different data items that come into the system. It is important to measure a systems performance on this metric so that one knows how often to retrain on a learning data set. For our particular dataset the hit percent accuracy was high at 85\% on the first day and gradually decreased by the end of the week to 49\%. In this case, it would be wise to retrain the dataset every week to get better performance. Keep in mind that there are many different datasets and web services available that would have greatly different performance results. Our results are only particular to the dataset that we generated, but they show the potential efficiency and validity of the algorithm for certain cases.
 
 \begin{figure}[!t]
 \centering
