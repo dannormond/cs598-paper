@@ -11,7 +11,7 @@
 \maketitle
 
 \begin{abstract}
-Troups is a novel transaction manager for cloud datastores of the BigTable family that provides full ACID transactions across co-located data items. It includes a mechanism for grouping related rows and an algorithm that aids users in deciding what groups to form by identifying data types and items frequently accessed together in transaction logs. This allows us to improve the consistency guarantees of these systems without significantly impacting their high scalability or availability.
+Troups is a novel transaction manager for cloud datastores of the BigTable family that provides full ACID transactions across co-located data items. It includes a mechanism for grouping related rows and an algorithm that aids users in deciding which groups to form by identifying data items frequently accessed together in transaction logs. This allows us to improve the consistency guarantees of BigTable datastores without significantly impacting their high scalability or availability. We also introduce the idea of swapping in data items by observing their cyclic frequencies in the past through our algorithm.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -27,12 +27,14 @@ In response to the lack of scalability and high operational cost of traditional 
 
 Many cloud applications, like search index construction, can easily tolerate relaxed consistency guarantees. However, other applications, like emerging OLTP multi-tenant platforms, have strong isolation and atomicity requirements. Without sufficient transaction support built into the infrastructure, the burden of ensuring data integrity is ultimately placed on application developers.
 
-Troups, which stands for Transaction Groups, aims to improve the transactional capabilities of NoSQL datastores in the BigTable family without compromising their scalability. To this end, it extends the BigTable programming model with the ability to group related rows in order to co-locate their data for efficient transaction processing. Troups also supports cross-group transactions, but tries to minimize their use to avoid two-phase commit overhead. Our transaction manager is novel in that it is designed as an observer, which means it extends BigTable without requiring changes and it is theoretically portable across datastores that satisfy the constraint model. We have also developed a set of group detection and placement algorithms to facilitate and optimize the task of identifying groups and allocating them to servers. In summary, our main contributions to the research field are:
+Troups, which stands for Transaction Groups, aims to improve the transactional capabilities of NoSQL datastores in the BigTable family without compromising their scalability. To this end, it extends the BigTable programming model with the ability to group related rows in order to co-locate their data for efficient transaction processing. Troups also supports cross-group transactions, but tries to minimize their use to avoid two-phase commit overhead. Our transaction manager is novel in that it is designed as a collection of distributed observers, which means it extends BigTable without requiring changes and it is theoretically portable across datastores that satisfy the constraint model. We have also developed a set of group detection and placement algorithms to facilitate and optimize the task of identifying groups and allocating them to servers at the appropriate times. In summary, our main contributions to the research field are:
 
 \begin{enumerate}
 \item A novel transaction manager for BigTable-like datastores that enables full ACID transactions at large scale for applications that exhibit transaction locality.
 \item A set of group detection and Time Swap placement algorithms based on transaction logs.
 \end{enumerate}
+
+Section 2 discusses related work followed by an optional section that establishes the necessary background. Section 3 describes the user-facing programming model changes introduced by Troups. Section 5 describes the system design in terms of the major components that comprise it and section 6 highlights notable aspects of their implementation. Our evaluation of the system is summarized in section 7. Finally, section 8 presents future work and section 9 concludes our work.
 
 \section{Related Work}
 Research on cloud-scale OLTP systems generally falls into two categories. On one hand, numerous approaches have been proposed recently for extending cloud datastores with more powerful transaction models. On the other hand, several recent publications describe how to adapt RDBMSs to make them more suitable for cloud workloads. The common theme across these approaches is a departure from full featured ACID transactions across the full data set. The proposals either reduce transaction isolation levels to make global transactions feasible or restrict serializable transactions to a subset of the data. In the latter case selection of these subsets is critical for ensuring efficient transaction processing, so algorithms have emerged to automate this process. We will first examine and classify OLTP cloud datastore architectures and subsequently survey relevant work on optimized data partitioning.
@@ -233,21 +235,38 @@ When we looked at the different clustering strategies that had been used in lite
   Our time swap algorithm runs in two phases, first is the learning phase. In the learning phase, a history of the transaction logs from the database is taken in. The time calendar is divided into sections that the user may care for such as by hour, day, week, etc. Common data access patterns are scanned for to determine which set of items a user will usually access when accessing the database. The algorithm will then group these items together into a group associated with that user. Next, the algorithm counts the frequency with which that group of data items is accessed by that user. By counting the frequency, the computer can determine what the most used data items are and thus give those data items more priority. There are many different types of datasets out there that are used for a multitude of purposes. Our algorithm will work better for certain cases and may not be as helpful for others. For example, our algorithm assumes that data which is frequently accessed previously will continue to be accessed in the future. However, there may be web applications which are highly dynamic and rarely manipulate the same data over and over again.
 	In the next phase of the algorithm, the real time phase, the information gained from the learning phase is used to make decisions on how to proceed and prefetch data. In the learning phase, a priority queue was created to maintain which data items were the most relevant to be stored together. That way, in the event that the disk did not have enough storage to store all the necessary data, it would choose the ones with highest priority. It checks the priority queue and swaps in the new data for an old data item from a previous period.
 
-\begin{figure}[!t]
-\centering
-\hspace*{-.2in}
-\includegraphics{images/timeswapalgo.png}
-\caption{Timestamp service - green: active timestamps, red: released timestamps}
-\label{ts}
-\end{figure}
+\begin{algorithm}
+\SetAlgoLined
+\DontPrintSemicolon
+\underline{\textbf{Learning Phase}}\;
+Divide calendar into time periods\;
+\For{$transaction\leftarrow transactions$} {
+	group the associated accessed data items into one unit\;
+	keep track of what period a unit is accessed in and how frequently\;
+	sort data units by how frequently they are accessed in a time period and place into priority queue\;
+}
+\BlankLine
+\BlankLine
+\underline{\textbf{Real Time Phase}}\;
+Just before the start of a time period$:$\;
+get most frequently accessed data unit from priority queue\;
+\eIf{not already on disk} {
+	swap out with old data items from a previous time period\;
+	}{
+	continue
+	}
 
-We implemented our algorithm using JAVA 1.6 and generated a dataset to test the correctness of running the algorithm. Our results measured the hit accuracy which is the percentage of times that a dataset was called from a server and the server already had that dataset on disk available. If that data was not on disk, then that would be considered a miss and that data would have to be retrieved later on. On our simulated dataset, we measured the hit accuracy over the days since the learning phase. The reasoning for looking at this is to take into account the variation that a dataset would see as the days since the learning phase passed. As more time passes, one would expect to see less predictable performance from when the learning phase took place as new and more users access different data items that come into the system. It is important to measure a systems performance on this metric so that one knows how often to retrain on a learning data set. For our particular dataset the hit percent accuracy was high at 85% on the first day and gradually decreased by the end of the week to 49%. In this case, it would be wise to retrain the dataset every week to get better performance. Keep in mind that there are many different datasets and web services available that would have greatly different performance results. Our results are only particular to the dataset that we generated, but they show the potential efficiency and validity of the algorithm for certain cases.
+\caption{Transaction Reclamation}
+\label{reclaim}
+\end{algorithm}
+
+We implemented our algorithm using JAVA 1.6 and generated a dataset to test the correctness of running the algorithm. Our results measured the hit accuracy which is the percentage of times that a dataset was called from a server and the server already had that dataset on disk available. If that data was not on disk, then that would be considered a miss and that data would have to be retrieved later on. On our simulated dataset, we measured the hit accuracy over the days since the learning phase. The reasoning for looking at this is to take into account the variation that a dataset would see as the days since the learning phase passed. As more time passes, one would expect to see less predictable performance from when the learning phase took place as new and more users access different data items that come into the system. It is important to measure a systems performance on this metric so that one knows how often to retrain on a learning data set. For our particular dataset the hit percent accuracy was high at 85\% on the first day and gradually decreased by the end of the week to 49\%. In this case, it would be wise to retrain the dataset every week to get better performance. Keep in mind that there are many different datasets and web services available that would have greatly different performance results. Our results are only particular to the dataset that we generated, but they show the potential efficiency and validity of the algorithm for certain cases.
 
 \begin{figure}[!t]
 \centering
 \hspace*{-.2in}
 \includegraphics{images/hitaccuracy.png}
-\caption{Timestamp service - green: active timestamps, red: released timestamps}
+\caption{Hit Accuracy of Time Swap Algorithm}
 \label{ts}
 \end{figure}
 
@@ -278,6 +297,9 @@ We have also presented a flexible mechanism for forming static or dynamic row gr
 To aid the user in identifying which rows are frequently accessed together in transactions we have developed a clustering algorithm based on transaction logs. Users can analyze the output of this algorithm to help them in their process of deciding which rows to group together.
 
 Furthermore, we discussed a timestamp service that is primarily used by our transaction manager, but is generally usable in distributed systems that need to manage transient versions of data. We investigated several possible implementations, some of which can be easily embedded into other applications.
+
+Moreover, we explored the use of our time swapping algorithm to partition data right before a user needs to access it to improve real time performance.
+We implemented our algorithm and simulated a test run.
 
 Finally, we implemented a comprehensive and extensible research prototype which we plan to make publicly available to the research community through the hadoop ecosystem in the future.
 
