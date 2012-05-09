@@ -1,4 +1,3 @@
-\newcommand{\CLASSINPUToutersidemargin}{1.5in}
 \documentclass[10pt,final,journal]{IEEEtran}
 \usepackage{graphicx}
 \usepackage{algorithm2e}
@@ -148,6 +147,9 @@ try {
 \end{lstlisting}
 
 \subsection{Group Detection}
+The group detection is a a job that can be run against the transaction log at any time.  The result is an output of the related tables based on the workload in the transaction log.  This output can be used to rework the application to use the row groups to decrease the overhead of the transactions.
+
+The only need is to have an adapter that allows the group detection job to transform the transaction log into a format that is needed to do the grouping algorithm.
 
 \section{Design}
 Troups consists of three main components: a global \emph{timestamp service}, a \emph{transaction manager} that is instantiated for each tablet in the system, and a \emph{transaction client} that is associated with each BigTable client. The timestamp service generates globally unique timestamps which serve as transaction identifiers and thus allow the transaction managers to produce globally serializable schedules. It also tracks which timestamps are no longer used so that transaction managers can reclaim resources associated with those timestamps. The transaction managers implement concurrency control and recovery functionality for the tablet they are associated with. The transaction client interacts with the timestamp service and transaction managers to implement the transaction APIs.
@@ -222,13 +224,9 @@ The transaction client extends the existing HBase client. It invokes transaction
 \subsection{Row Group Detection}
 The Entity Group Recommender analyzes transaction logs generated in a staging or production environment to suggest appropriate entity groupings.
 
-The analyzer determines how data should be partitioned and where the formed partitions should be placed. We envision using a data warehouse to implement this component. The data warehouse could run on the same infrastructure to maximize utilization, or in a separate cluster to free the OLTP system from carrying the computational load. As such, possible implementation technologies include Apache Hive or a relational database system optimized for online analytical processing (OLAP). The data structures of this component will be optimized to run machine learning algorithms.
+The analyzer determines how data should be partitioned and where the formed partitions should be placed. This component is implemented as a series of Map/Reduce jobs and machine learning jobs from the Apache Mahout project.  The group analysis can be run on the same cluster or a different cluster as long as the transaction log is made available. The group analyzer can run on the same infrastructure to maximize utilization, or in a separate cluster to free the OLTP system from carrying the computational load.  The data structures of this component are optimized to run machine learning algorithms.
 
-Clustering is a popular technique used in the field of machine learning to arrange similar data items together.  A specific form of clustering called hierarchical clustering involves minimizing the distance between related data items.  This would be useful in the database setting to minimize the network delay that a packet of data may experience traveling from one node to the next.  It would be especially useful in datacenters that span a wide area network where distance is indeed a major problem.  Centroid-based clustering is also useful because it finds the point within a cluster that has the shortest total distance to the other nodes.  This can be useful in determining where to place the central master node which has to communicate with all the nodes in its region.  A more general extension to this theory would involve Voronoi diagrams which arranges a diagram into multiple cells such that points in a cell are closer to each other than they are to points in other cells.
-
-There are techniques in a subfield of machine learning called conceptual clustering in which unsupervised classification is used to create a concept description for each class. They can create a tree like clustering hierarchy which can be used to group similar data types together. It essentially creates groupings for data sets by combining the clustering and characterization phase together. It focuses on the determination of concepts to describe data. We plan to apply these different techniques and compare to see which technique can give the best results in the situations that we set up.
-
-In particular, the clustering algorithm COBWEB is of interest. This algorithm creates a tree like structure from which each node can represent a given concept. These concepts represent sets of data that are treated as binary-valued property lists. The algorithm will take in binary values that it observes and incrementally add it into the classification tree. It will modify the tree as it goes along and perform such operations as merging concepts together, splitting concepts, adding new concepts, or adding items into a concept. We believe that this will be helpful in creating groupings for our data partitioning scheme. By arranging data into concepts, we believe that an improved partitioning scheme can be achieved.
+Clustering is a popular technique used in the field of machine learning to arrange similar data items together.  A specific form of clustering called hierarchical clustering involves minimizing the distance between related data items.  First, a canopy estimation is run on the data to estimate possible center points for the clusters or groups.  Then, a k-means clustering algorithm is used to refine and finalize the groups.  This approach groups the most closely related tables based on the usage in the transactions.
 
 \subsection {Time Swap Algorithm}
 When we looked at the different clustering strategies that had been used in literature, we noticed that nobody seemed to take into account the notion of swapping data based on time. While there are many methods to identify groupings in datasets, there did not seem to be a good mechanism to take advantage of such groupings. Groupings can be created through a variety of well established methods such as the Apriori algorithm which mines data items to find the most common subsets. There are also more advanced, efficient methods such as the FP-tree which is even faster than Apriori and involves compression and a tree like structure to look through data. Common machine learning techniques are utilized in such open source libraries as Apache Mahout which has support for things such as K-Means clustering, mean shift clustering, naïve bayes classifier, and latent dirichlet allocation to name a few. These groupings are useful so that they can be inputted into the time swap algorithm so that it knows which datasets to swap for. The groupings help create order for us to use. In our algorithm, once groupings are determined, the database will take this information to optimize data placement. Our algorithm helps when there are limited servers and limited disk space to serve a large diverse customer base. It does this by taking into account the fact that people will access a server and perform a task at certain times of the day. People who have regular schedules may predictably perform the same task. Also, certain groups and organizations may do things at certain times of the day. For example, imagine the case where a web server may process requests from people around the world from different time zones. People who live in one part of the world may wake up and do their business at the opposite time of the day of people living in the opposite hemisphere. Also, there may be cases where computers run periodic scripts to a remote server to do daily taks.  For example, almost every home pc computer regularly goes to an antivirus website to receive new updates to their antivirus software on a daily basis.  Also, Windows computers run daily checks to download the latest Windows updates. There are many cases where periodic scripts would be run and we think that databases should look into this and find ways to optimize the data placement to take this into account. 
@@ -254,7 +252,16 @@ We implemented our algorithm using JAVA 1.6 and generated a dataset to test the 
 \end{figure}
 
 \section{Evaluation}
-In the following section we present an evaluation of our Troups implementation on HBase.
+The evaluation of Troups was done in comparison with HBase to show the effects of running with transaction on different sized clusters.  Evaluation was done on cluster sizes of 4 and 8 nodes running one Hadoop/HBase master and 3-7 data nodes.  Each node in the cluster was configured from the same image using Amazon EC2 as a high CPU instance.  Two Troups configurations were evaluated to show the difference of the timestamp implementation.
+
+The evaluation shows that the operations take longer in the context of a transaction but the ability to scale horizontally and run across multiple nodes is preserved.  Depending on the setup of Troups, the transaction overhead is between 3x and 6x.  The results of the evaluation are shown in figure 4. 
+
+\begin{figure}[!t]
+\centering
+\includegraphics[scale=0.7]{images/throughput.png}
+\caption{Operation Throughput Comparision of Troups}
+\label{ts}
+\end{figure}
 
 \section{Future Research}
 Troups opens many opportunities for further research. To begin with, due to resource and time constraints and lack of standardized benchmarks for BigTable transactions, we have only been able to do a limited evaluation of the current system. We would like to expand the analysis and compare the system to other BigTable transaction managers.
@@ -268,7 +275,7 @@ We have described a transaction programming model and implementation for BigTabl
 
 We have also presented a flexible mechanism for forming static or dynamic row groups. We use this mechanism to co-locate rows in order to execute local transactions across them, but it can be used for many other use cases. For example, to place data groups closer to users to improve performance, or to form groups in a way that better balances server load.
 
-To aid the user in identifying which rows are frequently accessed together in transactions we have developed a clustering algorithm based on transaction logs. Users can analyze the output of this algorithm to help them in their process of deciding which rows to group together. The strength of this algorithm is TODO
+To aid the user in identifying which rows are frequently accessed together in transactions we have developed a clustering algorithm based on transaction logs. Users can analyze the output of this algorithm to help them in their process of deciding which rows to group together.
 
 Furthermore, we discussed a timestamp service that is primarily used by our transaction manager, but is generally usable in distributed systems that need to manage transient versions of data. We investigated several possible implementations, some of which can be easily embedded into other applications.
 
