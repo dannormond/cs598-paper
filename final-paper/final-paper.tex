@@ -236,8 +236,6 @@ When we looked at the different clustering strategies that had been used in lite
 	In the next phase of the algorithm, the real time phase, the information gained from the learning phase is used to make decisions on how to proceed and prefetch data. In the learning phase, a priority queue was created to maintain which data items were the most relevant to be stored together. That way, in the event that the disk did not have enough storage to store all the necessary data, it would choose the ones with highest priority. It checks the priority queue and swaps in the new data for an old data item from a previous period.
 
 \begin{algorithm}
-\SetAlgoLined
-\DontPrintSemicolon
 \underline{\textbf{Learning Phase}}\;
 Divide calendar into time periods\;
 \For{$transaction\leftarrow transactions$} {
@@ -273,13 +271,14 @@ We implemented our algorithm using JAVA 1.6 and generated a dataset to test the 
 \section{Evaluation}
 The evaluation of Troups was done in comparison with HBase to show the effects of running with transaction on different sized clusters.  Evaluation was done on cluster sizes of 4 and 8 nodes running one Hadoop/HBase master and 3-7 data nodes.  Each node in the cluster was configured from the same image using Amazon EC2 as a high CPU instance.  Two Troups configurations were evaluated to show the difference of the timestamp implementation.
 
-The evaluation shows that the operations take longer in the context of a transaction but the ability to scale horizontally and run across multiple nodes is preserved.  Depending on the setup of Troups, the transaction overhead is between 3x and 6x.  The results of the evaluation are shown in figure 4. 
+The evaluation shows that the operations take longer in the context of a transaction but the ability to scale horizontally and run across multiple nodes is preserved.  Depending on the setup of Troups, the transaction overhead is between 3x and 6x.  The results of the evaluation are shown in Figure ~\ref{tp}. 
 
 \begin{figure}[!t]
 \centering
+\hspace*{-.2in}
 \includegraphics[scale=0.7]{images/throughput.png}
 \caption{Operation Throughput Comparision of Troups}
-\label{ts}
+\label{tp}
 \end{figure}
 
 \section{Future Research}
